@@ -125,6 +125,36 @@ describe("parseArgs", () => {
 			expect(result.mode).toBe("rpc");
 		});
 
+		test("parses --json-stream compact", () => {
+			const result = parseArgs(["--mode", "json", "--json-stream", "compact"]);
+			expect(result.mode).toBe("json");
+			expect(result.jsonStream).toBe("compact");
+		});
+
+		test("adds error diagnostic when --json-stream value is missing", () => {
+			const result = parseArgs(["--mode", "json", "--json-stream"]);
+			expect(result.diagnostics).toContainEqual({
+				type: "error",
+				message: "Missing value for --json-stream. Valid values: full, compact",
+			});
+		});
+
+		test("adds error diagnostic for invalid --json-stream value", () => {
+			const result = parseArgs(["--mode", "json", "--json-stream", "delta"]);
+			expect(result.diagnostics).toContainEqual({
+				type: "error",
+				message: "Invalid value for --json-stream: delta. Valid values: full, compact",
+			});
+		});
+
+		test("warns when --json-stream is used outside --mode json", () => {
+			const result = parseArgs(["--mode", "text", "--json-stream", "compact"]);
+			expect(result.diagnostics).toContainEqual({
+				type: "warning",
+				message: "--json-stream is only used with --mode json and will be ignored",
+			});
+		});
+
 		test("parses --session", () => {
 			const result = parseArgs(["--session", "/path/to/session.jsonl"]);
 			expect(result.session).toBe("/path/to/session.jsonl");

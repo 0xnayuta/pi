@@ -2,9 +2,16 @@
 
 ```bash
 pi --mode json "Your prompt"
+pi --mode json --json-stream full "Your prompt"
+pi --mode json --json-stream compact "Your prompt"
 ```
 
-Outputs all session events as JSON lines to stdout. Useful for integrating pi into other tools or custom UIs.
+Outputs session events as JSON lines to stdout. Useful for integrating pi into other tools or custom UIs.
+
+`--json-stream` profiles:
+
+- `full` (default): preserves the existing full JSON event stream.
+- `compact`: keeps lifecycle/final events intact, compacts high-frequency `message_update` events, and omits `tool_execution_update`.
 
 ## Event Types
 
@@ -75,8 +82,19 @@ Followed by events as they occur:
 {"type":"agent_end","messages":[...]}
 ```
 
+## Compact Stream Notes
+
+In `--json-stream compact` mode:
+
+- `message_update` omits the cumulative `message` snapshot.
+- `assistantMessageEvent.partial` is stripped from delta updates.
+- `tool_execution_update` events are omitted.
+- Consumers that need final assistant output should read `message_end`, `turn_end`, and `tool_execution_end`.
+
+Compact mode is intended to reduce stdout transport overhead for long streaming runs while preserving final/lifecycle events.
+
 ## Example
 
 ```bash
-pi --mode json "List files" 2>/dev/null | jq -c 'select(.type == "message_end")'
+pi --mode json --json-stream compact "List files" 2>/dev/null | jq -c 'select(.type == "message_end")'
 ```
