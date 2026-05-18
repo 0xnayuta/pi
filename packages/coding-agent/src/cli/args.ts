@@ -8,6 +8,7 @@ import { APP_NAME, CONFIG_DIR_NAME, ENV_AGENT_DIR, ENV_SESSION_DIR } from "../co
 import type { ExtensionFlag } from "../core/extensions/types.ts";
 
 export type Mode = "text" | "json" | "rpc";
+export type JsonStreamProfile = "full" | "compact";
 
 export interface Args {
 	provider?: string;
@@ -22,6 +23,7 @@ export interface Args {
 	version?: boolean;
 	mode?: Mode;
 	name?: string;
+	jsonStream?: JsonStreamProfile;
 	noSession?: boolean;
 	session?: string;
 	sessionId?: string;
@@ -79,6 +81,24 @@ export function parseArgs(args: string[]): Args {
 			const mode = args[++i];
 			if (mode === "text" || mode === "json" || mode === "rpc") {
 				result.mode = mode;
+			}
+		} else if (arg === "--json-stream") {
+			const profile = args[i + 1];
+			if (!profile || profile.startsWith("-")) {
+				result.diagnostics.push({
+					type: "error",
+					message: "Missing value for --json-stream. Valid values: full, compact",
+				});
+			} else {
+				i++;
+				if (profile === "full" || profile === "compact") {
+					result.jsonStream = profile;
+				} else {
+					result.diagnostics.push({
+						type: "error",
+						message: `Invalid value for --json-stream: ${profile}. Valid values: full, compact`,
+					});
+				}
 			}
 		} else if (arg === "--continue" || arg === "-c") {
 			result.continue = true;
@@ -206,6 +226,13 @@ export function parseArgs(args: string[]): Args {
 		}
 	}
 
+	if (result.jsonStream && result.mode !== "json") {
+		result.diagnostics.push({
+			type: "warning",
+			message: "--json-stream is only used with --mode json and will be ignored",
+		});
+	}
+
 	return result;
 }
 
@@ -241,6 +268,7 @@ ${chalk.bold("Options:")}
   --system-prompt <text>         System prompt (default: coding assistant prompt)
   --append-system-prompt <text>  Append text or file contents to the system prompt (can be used multiple times)
   --mode <mode>                  Output mode: text (default), json, or rpc
+  --json-stream <profile>        JSON stream profile for --mode json: full (default), compact
   --print, -p                    Non-interactive mode: process prompt and exit
   --continue, -c                 Continue previous session
   --resume, -r                   Select a session to resume

@@ -7,9 +7,11 @@
  */
 
 import type { AssistantMessage, ImageContent } from "@earendil-works/pi-ai";
+import type { JsonStreamProfile } from "../cli/args.ts";
 import type { AgentSessionRuntime } from "../core/agent-session-runtime.ts";
 import { flushRawStdout, writeRawStdout } from "../core/output-guard.ts";
 import { killTrackedDetachedChildren } from "../utils/shell.ts";
+import { serializeJsonStreamEvent } from "./json-event-filter.ts";
 
 /**
  * Options for print mode.
@@ -17,6 +19,8 @@ import { killTrackedDetachedChildren } from "../utils/shell.ts";
 export interface PrintModeOptions {
 	/** Output mode: "text" for final response only, "json" for all events */
 	mode: "text" | "json";
+	/** JSON stream transport profile (only used when mode="json") */
+	jsonStream?: JsonStreamProfile;
 	/** Array of additional prompts to send after initialMessage */
 	messages?: string[];
 	/** First message to send (may contain @file content) */
@@ -30,7 +34,7 @@ export interface PrintModeOptions {
  * Sends prompts to the agent and outputs the result.
  */
 export async function runPrintMode(runtimeHost: AgentSessionRuntime, options: PrintModeOptions): Promise<number> {
-	const { mode, messages = [], initialMessage, initialImages } = options;
+	const { mode, jsonStream = "full", messages = [], initialMessage, initialImages } = options;
 	let exitCode = 0;
 	let session = runtimeHost.session;
 	let unsubscribe: (() => void) | undefined;
@@ -103,7 +107,10 @@ export async function runPrintMode(runtimeHost: AgentSessionRuntime, options: Pr
 		unsubscribe?.();
 		unsubscribe = session.subscribe((event) => {
 			if (mode === "json") {
-				writeRawStdout(`${JSON.stringify(event)}\n`);
+				const serialized = serializeJsonStreamEvent(event, jsonStream);
+				if (serialized !== undefined) {
+					writeRawStdout(`${JSON.stringify(serialized)}\n`);
+				}
 			}
 		});
 	};
